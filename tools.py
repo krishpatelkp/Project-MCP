@@ -2,6 +2,7 @@ import httpx
 from typing import Any
 from mcp.server.fastmcp import FastMCP
 from datetime import datetime
+import asyncio
 
 mcp = FastMCP("github-tools")
 
@@ -134,7 +135,89 @@ async def search_github_repos(query: str) -> str:
     ])
 
 
+async def get_contributors(owner: str, repo: str) -> list:
+    url = f"{GITHUB_API}/repos/{owner}/{repo}/contributors"
+    data = await make_github_request(url)
 
+    if not data:
+        return []
+
+    return [
+        f"{c['login']} ({c['contributions']} commits)"
+        for c in data[:5]
+    ]
+
+
+def extract_readme_sections(readme: str) -> str:
+    if not readme:
+        return "No README available"
+
+    lines = readme.split("\n")
+    headings = [line for line in lines if line.startswith("#")]
+
+    return "\n".join(headings[:8]) or "No sections found"
+
+def analyze_repo(commits_raw):
+    if not commits_raw:
+        return "No commit data"
+
+    latest_commit = commits_raw[0]["commit"]["author"]["date"]
+    date = datetime.fromisoformat(latest_commit.replace("Z", ""))
+
+    days = (datetime.now() - date).days
+
+    return f"Last Commit: {date} | Status: {'Active' if days < 30 else 'Inactive'}"
+
+
+
+
+@mcp.tool()
+async def github_full_report(owner: str, repo: str) -> str:
+    """Complete GitHub repo analysis (best tool)."""
+
+    repo_url = f"{GITHUB_API}/repos/{owner}/{repo}"
+    commits_url = f"{GITHUB_API}/repos/{owner}/{repo}/commits"
+
+    async def get_readme_raw():
+        url = f"{GITHUB_API}/repos/{owner}/{repo}/readme"
+        headers = {"Accept": "application/vnd.github.v3.raw"}
+
+        async with httpx.AsyncClient() as client:
+            try:
+                res = await client.get(url, headers=headers)
+                res.raise_for_status()
+                return res.text
+            except:
+                return None
+
+    repo_data, commits_raw, contributors, readme_raw = await asyncio.gather(
+        make_github_request(repo_url),
+        make_github_request(commits_url),
+        get_contributors(owner, repo),
+        get_readme_raw()
+    )
+
+    if not repo_data:
+        return "Repository not found."
+
+    health = analyze_repo(commits_raw)
+
+    readme_sections = extract_readme_sections(readme_raw)
+
+    return f"""
+📦 Repo: {repo_data['full_name']}
+⭐ Stars: {repo_data['stargazers_count']}
+🍴 Forks: {repo_data['forks_count']}
+💻 Language: {repo_data['language']}
+
+📊 {health}
+
+👥 Top Contributors:
+{"\n".join(contributors) if contributors else "No contributors"}
+
+📘 README Sections:
+{readme_sections}
+"""
 
 def main():
     # Initialize and run the server
