@@ -3,8 +3,10 @@ from typing import Any
 from mcp.server.fastmcp import FastMCP
 from datetime import datetime
 import asyncio
+import os
+import shutil
 
-mcp = FastMCP("github-tools")
+mcp = FastMCP("MCP_Server")
 
 GITHUB_API = "https://api.github.com"
 
@@ -106,18 +108,6 @@ async def github_repo_tool(owner: str, repo: str) -> str:
 """
 
 
-def analyze_repo(commits):
-    if not commits:
-        return "No commit data"
-
-    latest_commit = commits[0]["commit"]["author"]["date"]
-    date = datetime.fromisoformat(latest_commit.replace("Z", ""))
-
-    return f"""
-Last Commit: {date}
-Status: {"Active" if (datetime.now() - date).days < 30 else "Inactive"}
-"""
-
 
 @mcp.tool()
 async def search_github_repos(query: str) -> str:
@@ -218,6 +208,300 @@ async def github_full_report(owner: str, repo: str) -> str:
 📘 README Sections:
 {readme_sections}
 """
+
+
+@mcp.tool()
+async def extract_clean_text(url: str) -> str:
+    """Extract clean readable text from a webpage."""
+
+    async with httpx.AsyncClient() as client:
+        try:
+            res = await client.get(url, timeout=20.0)
+            html = res.text
+
+            import re
+            text = re.sub('<script.*?>.*?</script>', '', html, flags=re.DOTALL)
+            text = re.sub('<style.*?>.*?</style>', '', text, flags=re.DOTALL)
+            text = re.sub('<[^<]+?>', '', text)
+
+            return text.strip()[:2000]
+
+        except:
+            return "Failed to extract content"
+
+
+@mcp.tool()
+async def api_debugger(url: str) -> str:
+    """Fetch API and return formatted JSON."""
+
+    import json
+
+    async with httpx.AsyncClient() as client:
+        try:
+            res = await client.get(url, timeout=20.0)
+            data = res.json()
+
+            return json.dumps(data, indent=2)[:2000]
+
+        except:
+            return "API request failed"
+
+
+
+@mcp.tool()
+async def analyze_text_advanced(text: str) -> str:
+    """Analyze text deeply: length, keywords, structure."""
+
+    from collections import Counter
+
+    words = text.split()
+    sentences = [s for s in text.split(".") if s.strip()]
+
+    freq = Counter(words).most_common(5)
+
+    return f"""
+Words: {len(words)}
+Sentences: {len(sentences)}
+
+Top Keywords:
+{", ".join([w for w, _ in freq])}
+
+Preview:
+{text[:300]}
+"""
+
+
+
+
+
+# 🔒 CHANGE THIS TO YOUR SAFE WORKSPACE
+BASE_DIR = "E:/Server_workspace"
+
+
+# ---------------------------
+# 🔐 DYNAMIC ALLOWED PATHS
+# ---------------------------
+ALLOWED_PATHS = [
+    os.path.abspath(BASE_DIR),
+    os.path.abspath(os.path.expanduser("~"))
+]
+
+
+def is_allowed_path(path: str) -> bool:
+    abs_path = os.path.abspath(path)
+    return any(abs_path.startswith(p) for p in ALLOWED_PATHS)
+
+# ---------------------------
+# 🔐 SAFE PATH HANDLER
+# ---------------------------
+def safe_path(path: str) -> str:
+    full_path = os.path.abspath(os.path.join(BASE_DIR, path))
+
+    if not full_path.startswith(os.path.abspath(BASE_DIR)):
+        raise Exception("Access denied: outside base directory")
+
+    return full_path
+
+
+# ---------------------------
+# 📁 CREATE FOLDER
+# ---------------------------
+@mcp.tool()
+async def create_folder(path: str) -> str:
+    try:
+        full_path = safe_path(path)
+        os.makedirs(full_path, exist_ok=True)
+        return f"Folder created: {full_path}"
+    except Exception as e:
+        return str(e)
+
+
+# ---------------------------
+# 📄 CREATE FILE
+# ---------------------------
+@mcp.tool()
+async def create_file(path: str, content: str = "") -> str:
+    try:
+        full_path = safe_path(path)
+
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+        with open(full_path, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        return f"File created: {full_path}"
+    except Exception as e:
+        return str(e)
+
+
+# ---------------------------
+# ✏️ APPEND TO FILE
+# ---------------------------
+@mcp.tool()
+async def append_file(path: str, content: str) -> str:
+    try:
+        full_path = safe_path(path)
+
+        with open(full_path, "a", encoding="utf-8") as f:
+            f.write(content)
+
+        return f"Appended to: {full_path}"
+    except Exception as e:
+        return str(e)
+
+
+# ---------------------------
+# 📖 READ FILE
+# ---------------------------
+@mcp.tool()
+async def read_file(path: str) -> str:
+    try:
+        full_path = safe_path(path)
+
+        with open(full_path, "r", encoding="utf-8") as f:
+            return f.read()[:3000]
+
+    except Exception as e:
+        return str(e)
+
+
+# ---------------------------
+# ✏️ EDIT FILE (OVERWRITE)
+# ---------------------------
+@mcp.tool()
+async def edit_file(path: str, content: str) -> str:
+    try:
+        full_path = safe_path(path)
+
+        with open(full_path, "w", encoding="utf-8") as f:
+            f.write(content)
+
+        return f"File updated: {full_path}"
+
+    except Exception as e:
+        return str(e)
+
+
+# ---------------------------
+# 📂 LIST FILES
+# ---------------------------
+@mcp.tool()
+async def list_files(path: str = "") -> str:
+    try:
+        full_path = safe_path(path)
+
+        files = os.listdir(full_path)
+
+        return "\n".join(files) if files else "Empty folder"
+
+    except Exception as e:
+        return str(e)
+
+
+# ---------------------------
+# 🔍 SEARCH FILES
+# ---------------------------
+@mcp.tool()
+async def search_files(keyword: str) -> str:
+    results = []
+
+    try:
+        for root, _, files in os.walk(BASE_DIR):
+            for file in files:
+                if keyword.lower() in file.lower():
+                    results.append(os.path.join(root, file))
+
+        return "\n".join(results) if results else "No files found"
+
+    except Exception as e:
+        return str(e)
+
+
+# ---------------------------
+# 🔎 SEARCH CONTENT IN FILES
+# ---------------------------
+@mcp.tool()
+async def search_content(keyword: str) -> str:
+    matches = []
+
+    try:
+        for root, _, files in os.walk(BASE_DIR):
+            for file in files:
+                path = os.path.join(root, file)
+
+                try:
+                    with open(path, "r", encoding="utf-8") as f:
+                        if keyword.lower() in f.read().lower():
+                            matches.append(path)
+                except:
+                    continue
+
+        return "\n".join(matches) if matches else "No matches found"
+
+    except Exception as e:
+        return str(e)
+
+
+# ---------------------------
+# 🔁 RENAME FILE/FOLDER
+# ---------------------------
+@mcp.tool()
+async def rename_path(old_path: str, new_path: str) -> str:
+    try:
+        old_full = safe_path(old_path)
+        new_full = safe_path(new_path)
+
+        os.rename(old_full, new_full)
+
+        return f"Renamed to: {new_full}"
+
+    except Exception as e:
+        return str(e)
+
+
+# ---------------------------
+# 🗑 DELETE FILE OR FOLDER
+# ---------------------------
+@mcp.tool()
+async def delete_path(path: str) -> str:
+    try:
+        full_path = safe_path(path)
+
+        if os.path.isdir(full_path):
+            shutil.rmtree(full_path)
+        else:
+            os.remove(full_path)
+
+        return f"Deleted: {full_path}"
+
+    except Exception as e:
+        return str(e)
+
+
+# ---------------------------
+# 📊 FILE INFO
+# ---------------------------
+@mcp.tool()
+async def file_info(path: str) -> str:
+    try:
+        full_path = safe_path(path)
+
+        stats = os.stat(full_path)
+
+        return f"""
+Path: {full_path}
+Size: {stats.st_size} bytes
+Modified: {stats.st_mtime}
+"""
+
+    except Exception as e:
+        return str(e)
+
+
+
+
+
+
 
 def main():
     # Initialize and run the server
