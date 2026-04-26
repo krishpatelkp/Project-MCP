@@ -100,14 +100,17 @@ Locate Claude config:
 
 Example Config:
 
+In Claude Under Settings -> Developer -> Edit Config Just paste this Example Config 
+
+
 ```json
 {
   "mcpServers": {
     "MCP_Server": {
-      "command": "C:\\Users\\kpate\\.local\\bin\\uv.exe",
+      "command": "YourDriveName:\\Users\\UserName\\.local\\bin\\uv.exe",
       "args": [
         "run",
-        "E:\\weather\\Mcp_Server.py"
+        "YourDriveName:\\FolderName\\Mcp_Server.py"
       ]
     }
   },
