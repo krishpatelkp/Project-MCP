@@ -274,34 +274,54 @@ Preview:
 
 
 
-# 🔒 CHANGE THIS TO YOUR SAFE WORKSPACE
-BASE_DIR = "E:/Server_workspace"
 
 
 # ---------------------------
-# 🔐 DYNAMIC ALLOWED PATHS
+# 📁 OPTIONAL BASE DIRS
 # ---------------------------
-ALLOWED_PATHS = [
-    os.path.abspath(BASE_DIR),
-    os.path.abspath(os.path.expanduser("~"))
-]
+FILE_BASE_DIR = None
+EXPENSE_BASE_DIR = None
 
+def safe_path(path: str, base_dir: str = None) -> str:
+    # If relative path + base dir exists
+    if not os.path.isabs(path):
+        if base_dir:
+            full_path = os.path.abspath(os.path.join(base_dir, path))
+        else:
+            raise Exception("Full path required or set a base directory first")
+    else:
+        full_path = os.path.abspath(path)
 
-def is_allowed_path(path: str) -> bool:
-    abs_path = os.path.abspath(path)
-    return any(abs_path.startswith(p) for p in ALLOWED_PATHS)
+    blocked_paths = [
+        os.path.abspath("C:/Windows"),
+        os.path.abspath("C:/Program Files"),
+        os.path.abspath("C:/Program Files (x86)"),
+        os.path.abspath("C:/System32")
+    ]
 
-# ---------------------------
-# 🔐 SAFE PATH HANDLER
-# ---------------------------
-def safe_path(path: str) -> str:
-    full_path = os.path.abspath(os.path.join(BASE_DIR, path))
-
-    if not full_path.startswith(os.path.abspath(BASE_DIR)):
-        raise Exception("Access denied: outside base directory")
+    if any(full_path.startswith(bp) for bp in blocked_paths):
+        raise Exception("Access denied: restricted system directory")
 
     return full_path
 
+# ---------------------------
+# 💰 SAFE GENERAL PATH (For Expense Tracker)
+# Blocks only critical Windows folders
+# ---------------------------
+def safe_general_path(path: str) -> str:
+    full_path = os.path.abspath(path)
+
+    blocked_paths = [
+        os.path.abspath("C:/Windows"),
+        os.path.abspath("C:/Program Files"),
+        os.path.abspath("C:/Program Files (x86)"),
+        os.path.abspath("C:/System32")
+    ]
+
+    if any(full_path.startswith(bp) for bp in blocked_paths):
+        raise Exception("Access denied: restricted system directory")
+
+    return full_path
 
 # ---------------------------
 # 📁 CREATE FOLDER
@@ -309,7 +329,7 @@ def safe_path(path: str) -> str:
 @mcp.tool()
 async def create_folder(path: str) -> str:
     try:
-        full_path = safe_path(path)
+        full_path = safe_path(path, FILE_BASE_DIR)
         os.makedirs(full_path, exist_ok=True)
         return f"Folder created: {full_path}"
     except Exception as e:
@@ -322,7 +342,7 @@ async def create_folder(path: str) -> str:
 @mcp.tool()
 async def create_file(path: str, content: str = "") -> str:
     try:
-        full_path = safe_path(path)
+        full_path = safe_path(path, FILE_BASE_DIR)
 
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
@@ -340,7 +360,7 @@ async def create_file(path: str, content: str = "") -> str:
 @mcp.tool()
 async def append_file(path: str, content: str) -> str:
     try:
-        full_path = safe_path(path)
+        full_path = safe_path(path, FILE_BASE_DIR)
 
         with open(full_path, "a", encoding="utf-8") as f:
             f.write(content)
@@ -356,7 +376,7 @@ async def append_file(path: str, content: str) -> str:
 @mcp.tool()
 async def read_file(path: str) -> str:
     try:
-        full_path = safe_path(path)
+        full_path = safe_path(path, FILE_BASE_DIR)
 
         with open(full_path, "r", encoding="utf-8") as f:
             return f.read()[:3000]
@@ -371,7 +391,7 @@ async def read_file(path: str) -> str:
 @mcp.tool()
 async def edit_file(path: str, content: str) -> str:
     try:
-        full_path = safe_path(path)
+        full_path = safe_path(path, FILE_BASE_DIR)
 
         with open(full_path, "w", encoding="utf-8") as f:
             f.write(content)
@@ -388,7 +408,7 @@ async def edit_file(path: str, content: str) -> str:
 @mcp.tool()
 async def list_files(path: str = "") -> str:
     try:
-        full_path = safe_path(path)
+        full_path = safe_path(path, FILE_BASE_DIR)
 
         files = os.listdir(full_path)
 
@@ -406,7 +426,8 @@ async def search_files(keyword: str) -> str:
     results = []
 
     try:
-        for root, _, files in os.walk(BASE_DIR):
+        search_root = FILE_BASE_DIR if FILE_BASE_DIR else os.getcwd()
+        for root, _, files in os.walk(search_root):
             for file in files:
                 if keyword.lower() in file.lower():
                     results.append(os.path.join(root, file))
@@ -425,7 +446,8 @@ async def search_content(keyword: str) -> str:
     matches = []
 
     try:
-        for root, _, files in os.walk(BASE_DIR):
+        search_root = FILE_BASE_DIR if FILE_BASE_DIR else os.getcwd()
+        for root, _, files in os.walk(search_root):
             for file in files:
                 path = os.path.join(root, file)
 
@@ -448,8 +470,8 @@ async def search_content(keyword: str) -> str:
 @mcp.tool()
 async def rename_path(old_path: str, new_path: str) -> str:
     try:
-        old_full = safe_path(old_path)
-        new_full = safe_path(new_path)
+        old_full = safe_path(old_path, FILE_BASE_DIR)
+        new_full = safe_path(new_path, FILE_BASE_DIR)
 
         os.rename(old_full, new_full)
 
@@ -465,7 +487,7 @@ async def rename_path(old_path: str, new_path: str) -> str:
 @mcp.tool()
 async def delete_path(path: str) -> str:
     try:
-        full_path = safe_path(path)
+        full_path = safe_path(path, FILE_BASE_DIR)
 
         if os.path.isdir(full_path):
             shutil.rmtree(full_path)
@@ -484,7 +506,7 @@ async def delete_path(path: str) -> str:
 @mcp.tool()
 async def file_info(path: str) -> str:
     try:
-        full_path = safe_path(path)
+        full_path = safe_path(path, FILE_BASE_DIR)
 
         stats = os.stat(full_path)
 
@@ -498,7 +520,30 @@ Modified: {stats.st_mtime}
         return str(e)
 
 
+@mcp.tool()
+async def set_file_base_dir(path: str) -> str:
+    global FILE_BASE_DIR
 
+    full_path = safe_path(path)
+
+    os.makedirs(full_path, exist_ok=True)
+
+    FILE_BASE_DIR = full_path
+
+    return f"File system base directory set to: {FILE_BASE_DIR}"
+
+
+@mcp.tool()
+async def set_expense_base_dir(path: str) -> str:
+    global EXPENSE_BASE_DIR
+
+    full_path = safe_path(path)
+
+    os.makedirs(full_path, exist_ok=True)
+
+    EXPENSE_BASE_DIR = full_path
+
+    return f"Expense tracker base directory set to: {EXPENSE_BASE_DIR}"
 
 
 
