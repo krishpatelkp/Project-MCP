@@ -5,6 +5,7 @@ from datetime import datetime
 import asyncio
 import os
 import shutil
+import json
 
 mcp = FastMCP("MCP_Server")
 
@@ -545,7 +546,204 @@ async def set_expense_base_dir(path: str) -> str:
 
     return f"Expense tracker base directory set to: {EXPENSE_BASE_DIR}"
 
+# ---------------------------
+# 💰 EXPENSE TRACKER HELPERS
+# ---------------------------
 
+
+
+def get_expense_file():
+    if not EXPENSE_BASE_DIR:
+        raise Exception("Set expense tracker base directory first")
+
+    return os.path.join(EXPENSE_BASE_DIR, "expenses.json")
+
+
+def load_expenses():
+    expense_file = get_expense_file()
+
+    if not os.path.exists(expense_file):
+        return []
+
+    with open(expense_file, "r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def save_expenses(expenses):
+    expense_file = get_expense_file()
+
+    os.makedirs(os.path.dirname(expense_file), exist_ok=True)
+
+    with open(expense_file, "w", encoding="utf-8") as f:
+        json.dump(expenses, f, indent=2)
+
+
+# ---------------------------
+# ➕ ADD EXPENSE
+# ---------------------------
+@mcp.tool()
+async def add_expense(
+    amount: float,
+    category: str = "General",
+    description: str = "No description"
+) -> str:
+    try:
+        expenses = load_expenses()
+
+        expense = {
+            "id": max([e["id"] for e in expenses], default=0) + 1,
+            "amount": amount,
+            "category": category,
+            "description": description,
+            "date": datetime.now().strftime("%Y-%m-%d")
+        }
+
+        expenses.append(expense)
+
+        save_expenses(expenses)
+
+        return f"Expense added: ₹{amount} | {category} | {description}"
+
+    except Exception as e:
+        return str(e)
+
+
+# ---------------------------
+# 📖 VIEW ALL EXPENSES
+# ---------------------------
+@mcp.tool()
+async def view_expenses() -> str:
+    try:
+        expenses = load_expenses()
+
+        if not expenses:
+            return "No expenses recorded"
+
+        return "\n".join([
+            f"{e['id']}. ₹{e['amount']} | {e['category']} | {e['description']} | {e['date']}"
+            for e in expenses
+        ])
+
+    except Exception as e:
+        return str(e)
+
+
+# ---------------------------
+# 🔍 SEARCH EXPENSES
+# ---------------------------
+@mcp.tool()
+async def search_expenses(category: str) -> str:
+    try:
+        expenses = load_expenses()
+
+        matches = [
+            e for e in expenses
+            if category.lower() in e["category"].lower()
+        ]
+
+        if not matches:
+            return "No matching expenses"
+
+        return "\n".join([
+            f"₹{e['amount']} | {e['description']} | {e['date']}"
+            for e in matches
+        ])
+
+    except Exception as e:
+        return str(e)
+
+
+# ---------------------------
+# 📅 MONTHLY SUMMARY
+# ---------------------------
+@mcp.tool()
+async def monthly_summary(month: str = "") -> str:
+    """
+    month format: YYYY-MM
+    Example: 2026-04
+    """
+    try:
+        expenses = load_expenses()
+
+        if not month:
+            month = datetime.now().strftime("%Y-%m")
+
+        filtered = [
+            e for e in expenses
+            if e["date"].startswith(month)
+        ]
+
+        if not filtered:
+            return f"No expenses for {month}"
+
+        total = sum(e["amount"] for e in filtered)
+
+        category_totals = {}
+
+        for e in filtered:
+            category_totals[e["category"]] = category_totals.get(e["category"], 0) + e["amount"]
+
+        breakdown = "\n".join([
+            f"{cat}: ₹{amt}"
+            for cat, amt in category_totals.items()
+        ])
+
+        return f"""
+Month: {month}
+Total Spending: ₹{total}
+
+Category Breakdown:
+{breakdown}
+"""
+
+    except Exception as e:
+        return str(e)
+
+
+# ---------------------------
+# 🗑 DELETE EXPENSE
+# ---------------------------
+@mcp.tool()
+async def delete_expense(expense_id: int) -> str:
+    try:
+        expenses = load_expenses()
+
+        updated = [e for e in expenses if e["id"] != expense_id]
+
+        if len(updated) == len(expenses):
+            return "Expense ID not found"
+
+        save_expenses(updated)
+
+        return f"Deleted expense ID: {expense_id}"
+
+    except Exception as e:
+        return str(e)
+
+
+# ---------------------------
+# 🏆 HIGHEST EXPENSE
+# ---------------------------
+@mcp.tool()
+async def highest_expense() -> str:
+    try:
+        expenses = load_expenses()
+
+        if not expenses:
+            return "No expenses recorded"
+
+        highest = max(expenses, key=lambda x: x["amount"])
+
+        return f"""
+Highest Expense:
+₹{highest['amount']}
+Category: {highest['category']}
+Description: {highest['description']}
+Date: {highest['date']}
+"""
+
+    except Exception as e:
+        return str(e)
 
 
 def main():
