@@ -390,24 +390,7 @@ def safe_path(path: str, base_dir: str = None) -> str:
 
     return full_path
 
-# ---------------------------
-# 💰 SAFE GENERAL PATH (For Expense Tracker)
-# Blocks only critical Windows folders
-# ---------------------------
-def safe_general_path(path: str) -> str:
-    full_path = os.path.abspath(path)
 
-    blocked_paths = [
-        os.path.abspath("C:/Windows"),
-        os.path.abspath("C:/Program Files"),
-        os.path.abspath("C:/Program Files (x86)"),
-        os.path.abspath("C:/System32")
-    ]
-
-    if any(full_path.startswith(bp) for bp in blocked_paths):
-        raise Exception("Access denied: restricted system directory")
-
-    return full_path
 
 # ---------------------------
 # 📁 CREATE FOLDER
@@ -630,37 +613,6 @@ async def set_expense_base_dir(path: str) -> str:
     EXPENSE_BASE_DIR = full_path
 
     return f"Expense tracker base directory set to: {EXPENSE_BASE_DIR}"
-
-# ---------------------------
-# 💰 EXPENSE TRACKER HELPERS
-# ---------------------------
-
-
-
-# def get_expense_file():
-#     if not EXPENSE_BASE_DIR:
-#         raise Exception("Set expense tracker base directory first")
-
-#     return os.path.join(EXPENSE_BASE_DIR, "expenses.json")
-
-
-# def load_expenses():
-#     expense_file = get_expense_file()
-
-#     if not os.path.exists(expense_file):
-#         return []
-
-#     with open(expense_file, "r", encoding="utf-8") as f:
-#         return json.load(f)
-
-
-# def save_expenses(expenses):
-#     expense_file = get_expense_file()
-
-#     os.makedirs(os.path.dirname(expense_file), exist_ok=True)
-
-#     with open(expense_file, "w", encoding="utf-8") as f:
-#         json.dump(expenses, f, indent=2)
 
 
 # ---------------------------
