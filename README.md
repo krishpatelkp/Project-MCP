@@ -1,1 +1,180 @@
-# Project-MCP
+Project-MCP
+
+A lightweight Multi-Tool MCP Server built with Python for Claude Desktop / MCP-compatible clients. This project combines GitHub tools, file system automation, and PostgreSQL expense tracking into one practical productivity server.
+
+🚀 Features
+GitHub Tools 🐙
+Repository Details: Fetch repo info, README, and commit insights
+Repository Search: Search GitHub repositories quickly
+File System Management 📁
+Dynamic Base Directory setup
+Create Files & Folders
+Read / Edit / Append Files
+Rename / Delete Files
+Search by Filename
+Search by File Content
+Restricted system path security
+Expense Tracker 💰
+Automatic PostgreSQL setup
+Auto database + table creation
+Add Expenses
+View All Expenses
+Search by Category
+Monthly Summary
+Highest Expense
+Delete Expense
+🔒 Security
+Restricted Windows system folder blocking
+Base-directory sandboxing for safer file operations
+PostgreSQL local authentication
+Environment variable support for sensitive credentials
+🛠️ Tech Stack
+
+Backend: Python, MCP SDK
+Database: PostgreSQL
+API / Requests: HTTPX
+Package Manager: uv
+Client: Claude Desktop
+
+⚙️ Installation & Setup
+Clone the Repository
+git clone https://github.com/YOUR_USERNAME/Project-MCP.git
+cd Project-MCP
+Install Dependencies
+uv add mcp httpx psycopg2-binary pandas openpyxl
+
+Or:
+
+pip install mcp httpx psycopg2-binary pandas openpyxl
+🐘 PostgreSQL Setup
+
+Install PostgreSQL + pgAdmin 4
+
+During installation keep:
+
+Username: postgres
+Port: 5432
+
+Remember your PostgreSQL password.
+
+🤖 Claude Desktop MCP Setup
+
+Locate Claude config:
+
+%APPDATA%\Claude\claude_desktop_config.json
+
+Example Config:
+
+{
+  "mcpServers": {
+    "MCP_Server": {
+      "command": "C:\\Users\\Username\\.local\\bin\\uv.exe",
+      "args": [
+        "run",
+        "E:\\FolderName\\Mcp_Server.py"
+      ]
+    }
+  },
+  "preferences": {
+    "menuBarEnabled": false,
+    "legacyQuickEntryEnabled": false,
+    "coworkScheduledTasksEnabled": false,
+    "ccdScheduledTasksEnabled": false,
+    "coworkWebSearchEnabled": true
+  }
+}
+🗄️ Database Setup
+
+Run:
+
+Setup PostgreSQL
+
+Note: The server will automatically create:
+
+mcp_server database
+expenses table
+📂 Project Structure
+Project-MCP/
+├── Mcp_Server.py
+├── README.md
+├── requirements.txt
+├── .gitignore
+└── .env
+🌍 Environment Variables
+
+Create a .env file:
+
+POSTGRES_PASSWORD=your_password_here
+📝 Usage
+File System
+Set Base Directory
+Set file system base directory to E:/MCP_Test
+Create File
+Create file test.txt with content: Hello World
+Read File
+Read file test.txt
+Expense Tracker
+Add Expense
+Add expense:
+Amount: 500
+Category: Food
+Description: Lunch
+View Expenses
+View all expenses
+Monthly Summary
+Show monthly expense summary
+GitHub Tools
+Repository Details
+Get GitHub repo owner=facebook repo=react
+Repository Search
+Search GitHub repos for MCP Python
+🚨 Common Issues
+Module Error
+uv add mcp httpx psycopg2-binary
+Git Branch Push Error
+git checkout -b Database-Integration
+git add .
+git commit -m "Added PostgreSQL integration"
+git push -u origin Database-Integration
+Base Directory Restriction
+Set file system base directory to E:/MCP_Test
+🧪 Testing Checklist
+File System
+Set base dir
+Create file
+Edit file
+Search file
+Delete file
+PostgreSQL
+Setup PostgreSQL
+Add expense
+View expense
+Monthly summary
+Delete expense
+GitHub
+Repo fetch
+Repo search
+🧠 Future Improvements
+CSV export
+Budget alerts
+Notes manager
+Email automation
+File copy/move tools
+Analytics dashboard
+🏁 Final Use Cases
+
+This project is suitable for:
+
+GitHub Portfolio
+College Demonstration
+MCP Learning
+Python Backend Practice
+PostgreSQL Practice
+Automation Tooling
+📜 License
+
+MIT License (recommended)
+
+🙌 Author
+
+Krish Patel / Project-MCP

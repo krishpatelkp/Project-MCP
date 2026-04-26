@@ -637,32 +637,6 @@ async def set_expense_base_dir(path: str) -> str:
 
 
 
-# def get_expense_file():
-#     if not EXPENSE_BASE_DIR:
-#         raise Exception("Set expense tracker base directory first")
-
-#     return os.path.join(EXPENSE_BASE_DIR, "expenses.json")
-
-
-# def load_expenses():
-#     expense_file = get_expense_file()
-
-#     if not os.path.exists(expense_file):
-#         return []
-
-#     with open(expense_file, "r", encoding="utf-8") as f:
-#         return json.load(f)
-
-
-# def save_expenses(expenses):
-#     expense_file = get_expense_file()
-
-#     os.makedirs(os.path.dirname(expense_file), exist_ok=True)
-
-#     with open(expense_file, "w", encoding="utf-8") as f:
-#         json.dump(expenses, f, indent=2)
-
-
 # ---------------------------
 # ➕ ADD EXPENSE (PostgreSQL)
 # ---------------------------
