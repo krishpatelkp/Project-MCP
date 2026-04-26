@@ -6,8 +6,91 @@ import asyncio
 import os
 import shutil
 import json
+import psycopg2
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 mcp = FastMCP("MCP_Server")
+
+
+
+def get_db_connection():
+    return psycopg2.connect(
+        dbname="mcp_server",
+        user="postgres",
+        password="5656",
+        host="localhost",
+        port="5432"
+    )
+
+
+@mcp.tool()
+def setup_postgres(
+    user: str = "postgres",
+    password: str = "5656",
+    host: str = "localhost",
+    port: str = "5432",
+    db_name: str = "mcp_server"
+) -> str:
+    try:
+        # Connect to default postgres database
+        conn = psycopg2.connect(
+            dbname="postgres",
+            user=user,
+            password=password,
+            host=host,
+            port=port
+        )
+
+        conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+
+        cursor = conn.cursor()
+
+        # Check if database exists
+        cursor.execute(
+            "SELECT 1 FROM pg_database WHERE datname = %s",
+            (db_name,)
+        )
+
+        exists = cursor.fetchone()
+
+        # Create DB if missing
+        if not exists:
+            cursor.execute(f"CREATE DATABASE {db_name}")
+
+        cursor.close()
+        conn.close()
+
+        # Connect to project DB
+        project_conn = psycopg2.connect(
+            dbname=db_name,
+            user=user,
+            password=password,
+            host=host,
+            port=port
+        )
+
+        project_cursor = project_conn.cursor()
+
+        # Create expenses table
+        project_cursor.execute("""
+            CREATE TABLE IF NOT EXISTS expenses (
+                id SERIAL PRIMARY KEY,
+                amount REAL NOT NULL,
+                category TEXT NOT NULL,
+                description TEXT,
+                created_at DATE DEFAULT CURRENT_DATE
+            );
+        """)
+
+        project_conn.commit()
+
+        project_cursor.close()
+        project_conn.close()
+
+        return f"PostgreSQL setup complete: Database '{db_name}' ready."
+
+    except Exception as e:
+        return f"PostgreSQL setup failed: {str(e)}"
 
 GITHUB_API = "https://api.github.com"
 
@@ -279,7 +362,9 @@ Preview:
 
 # ---------------------------
 # 📁 OPTIONAL BASE DIRS
-# ---------------------------
+# ---------------------------   
+
+
 FILE_BASE_DIR = None
 EXPENSE_BASE_DIR = None
 
@@ -552,34 +637,34 @@ async def set_expense_base_dir(path: str) -> str:
 
 
 
-def get_expense_file():
-    if not EXPENSE_BASE_DIR:
-        raise Exception("Set expense tracker base directory first")
+# def get_expense_file():
+#     if not EXPENSE_BASE_DIR:
+#         raise Exception("Set expense tracker base directory first")
 
-    return os.path.join(EXPENSE_BASE_DIR, "expenses.json")
-
-
-def load_expenses():
-    expense_file = get_expense_file()
-
-    if not os.path.exists(expense_file):
-        return []
-
-    with open(expense_file, "r", encoding="utf-8") as f:
-        return json.load(f)
+#     return os.path.join(EXPENSE_BASE_DIR, "expenses.json")
 
 
-def save_expenses(expenses):
-    expense_file = get_expense_file()
+# def load_expenses():
+#     expense_file = get_expense_file()
 
-    os.makedirs(os.path.dirname(expense_file), exist_ok=True)
+#     if not os.path.exists(expense_file):
+#         return []
 
-    with open(expense_file, "w", encoding="utf-8") as f:
-        json.dump(expenses, f, indent=2)
+#     with open(expense_file, "r", encoding="utf-8") as f:
+#         return json.load(f)
+
+
+# def save_expenses(expenses):
+#     expense_file = get_expense_file()
+
+#     os.makedirs(os.path.dirname(expense_file), exist_ok=True)
+
+#     with open(expense_file, "w", encoding="utf-8") as f:
+#         json.dump(expenses, f, indent=2)
 
 
 # ---------------------------
-# ➕ ADD EXPENSE
+# ➕ ADD EXPENSE (PostgreSQL)
 # ---------------------------
 @mcp.tool()
 async def add_expense(
@@ -588,19 +673,21 @@ async def add_expense(
     description: str = "No description"
 ) -> str:
     try:
-        expenses = load_expenses()
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-        expense = {
-            "id": max([e["id"] for e in expenses], default=0) + 1,
-            "amount": amount,
-            "category": category,
-            "description": description,
-            "date": datetime.now().strftime("%Y-%m-%d")
-        }
+        cursor.execute(
+            """
+            INSERT INTO expenses (amount, category, description)
+            VALUES (%s, %s, %s)
+            """,
+            (amount, category, description)
+        )
 
-        expenses.append(expense)
+        conn.commit()
 
-        save_expenses(expenses)
+        cursor.close()
+        conn.close()
 
         return f"Expense added: ₹{amount} | {category} | {description}"
 
@@ -614,14 +701,26 @@ async def add_expense(
 @mcp.tool()
 async def view_expenses() -> str:
     try:
-        expenses = load_expenses()
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-        if not expenses:
+        cursor.execute("""
+            SELECT id, amount, category, description, created_at
+            FROM expenses
+            ORDER BY id DESC
+        """)
+
+        rows = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        if not rows:
             return "No expenses recorded"
 
         return "\n".join([
-            f"{e['id']}. ₹{e['amount']} | {e['category']} | {e['description']} | {e['date']}"
-            for e in expenses
+            f"{r[0]}. ₹{r[1]} | {r[2]} | {r[3]} | {r[4]}"
+            for r in rows
         ])
 
     except Exception as e:
@@ -634,19 +733,26 @@ async def view_expenses() -> str:
 @mcp.tool()
 async def search_expenses(category: str) -> str:
     try:
-        expenses = load_expenses()
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-        matches = [
-            e for e in expenses
-            if category.lower() in e["category"].lower()
-        ]
+        cursor.execute("""
+            SELECT amount, description, created_at
+            FROM expenses
+            WHERE LOWER(category) LIKE LOWER(%s)
+        """, (f"%{category}%",))
 
-        if not matches:
+        rows = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        if not rows:
             return "No matching expenses"
 
         return "\n".join([
-            f"₹{e['amount']} | {e['description']} | {e['date']}"
-            for e in matches
+            f"₹{r[0]} | {r[1]} | {r[2]}"
+            for r in rows
         ])
 
     except Exception as e:
@@ -658,34 +764,33 @@ async def search_expenses(category: str) -> str:
 # ---------------------------
 @mcp.tool()
 async def monthly_summary(month: str = "") -> str:
-    """
-    month format: YYYY-MM
-    Example: 2026-04
-    """
     try:
-        expenses = load_expenses()
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
         if not month:
             month = datetime.now().strftime("%Y-%m")
 
-        filtered = [
-            e for e in expenses
-            if e["date"].startswith(month)
-        ]
+        cursor.execute("""
+            SELECT category, SUM(amount)
+            FROM expenses
+            WHERE TO_CHAR(created_at, 'YYYY-MM') = %s
+            GROUP BY category
+        """, (month,))
 
-        if not filtered:
+        rows = cursor.fetchall()
+
+        cursor.close()
+        conn.close()
+
+        if not rows:
             return f"No expenses for {month}"
 
-        total = sum(e["amount"] for e in filtered)
-
-        category_totals = {}
-
-        for e in filtered:
-            category_totals[e["category"]] = category_totals.get(e["category"], 0) + e["amount"]
+        total = sum(float(r[1]) for r in rows)
 
         breakdown = "\n".join([
-            f"{cat}: ₹{amt}"
-            for cat, amt in category_totals.items()
+            f"{r[0]}: ₹{r[1]}"
+            for r in rows
         ])
 
         return f"""
@@ -706,14 +811,23 @@ Category Breakdown:
 @mcp.tool()
 async def delete_expense(expense_id: int) -> str:
     try:
-        expenses = load_expenses()
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-        updated = [e for e in expenses if e["id"] != expense_id]
+        cursor.execute(
+            "DELETE FROM expenses WHERE id = %s",
+            (expense_id,)
+        )
 
-        if len(updated) == len(expenses):
+        deleted = cursor.rowcount
+
+        conn.commit()
+
+        cursor.close()
+        conn.close()
+
+        if deleted == 0:
             return "Expense ID not found"
-
-        save_expenses(updated)
 
         return f"Deleted expense ID: {expense_id}"
 
@@ -727,19 +841,30 @@ async def delete_expense(expense_id: int) -> str:
 @mcp.tool()
 async def highest_expense() -> str:
     try:
-        expenses = load_expenses()
+        conn = get_db_connection()
+        cursor = conn.cursor()
 
-        if not expenses:
+        cursor.execute("""
+            SELECT amount, category, description, created_at
+            FROM expenses
+            ORDER BY amount DESC
+            LIMIT 1
+        """)
+
+        row = cursor.fetchone()
+
+        cursor.close()
+        conn.close()
+
+        if not row:
             return "No expenses recorded"
-
-        highest = max(expenses, key=lambda x: x["amount"])
 
         return f"""
 Highest Expense:
-₹{highest['amount']}
-Category: {highest['category']}
-Description: {highest['description']}
-Date: {highest['date']}
+₹{row[0]}
+Category: {row[1]}
+Description: {row[2]}
+Date: {row[3]}
 """
 
     except Exception as e:
