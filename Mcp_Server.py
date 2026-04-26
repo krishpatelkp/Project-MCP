@@ -17,7 +17,7 @@ def get_db_connection():
     return psycopg2.connect(
         dbname="mcp_server",
         user="postgres",
-        password="5656",
+        password="5656",   #Write Your postgres password here as this is only for testing purpose, change it before using
         host="localhost",
         port="5432"
     )
@@ -26,7 +26,7 @@ def get_db_connection():
 @mcp.tool()
 def setup_postgres(
     user: str = "postgres",
-    password: str = "5656",
+    password: str = "5656", #Write Your postgres password here as this is only for testing purpose, change it before using
     host: str = "localhost",
     port: str = "5432",
     db_name: str = "mcp_server"
