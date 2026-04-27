@@ -64,6 +64,7 @@ cd Project-MCP
 
 ## Install Dependencies
 ```bash
+Preferable method - do pip install uv 
 uv add mcp httpx psycopg2-binary pandas openpyxl
 ```
 
