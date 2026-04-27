@@ -230,16 +230,6 @@ uv add mcp httpx psycopg2-binary
 
 ---
 
-## Git Branch Push Error
-```bash
-git checkout -b Database-Integration
-git add .
-git commit -m "Added PostgreSQL integration"
-git push -u origin Database-Integration
-```
-
----
-
 ## Base Directory Restriction
 ```text
 Set file system base directory to E:/MCP_Test
