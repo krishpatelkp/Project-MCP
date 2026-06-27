@@ -282,8 +282,6 @@ This project is suitable for:
 
 ---
 
----
-
 # 🙌 Author
 **Krish Patel / Project-MCP**
 
