@@ -282,9 +282,6 @@ This project is suitable for:
 
 ---
 
-# 📜 License
-MIT License (recommended)
-
 ---
 
 # 🙌 Author
